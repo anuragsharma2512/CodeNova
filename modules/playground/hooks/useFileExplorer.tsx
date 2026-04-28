@@ -47,8 +47,9 @@ export const useFileExplorer = create<FileExplorerState>((set, get) => ({
   setOpenFiles: (files) => set({ openFiles: files }),
   setActiveFileId: (fileId) => set({ activeFileId: fileId }),
 
+  // Functions defination
    openFile: (file) => {
-    const fileId = generateFileId(file, get().templateData!);
+    const fileId = generateFileId(file, get().templateData!);  
     const { openFiles } = get();
     const existingFile = openFiles.find((f) => f.id === fileId);
 
@@ -99,5 +100,13 @@ export const useFileExplorer = create<FileExplorerState>((set, get) => ({
     })
     
   },
+
+  closeAllFiles: () => {
+    set({
+      openFiles: [],
+      activeFileId: null,
+      editorContent: ""
+    })
+  }
   
 }))
