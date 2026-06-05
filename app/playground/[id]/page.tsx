@@ -93,7 +93,7 @@ const MainPlaygroundPage = () => {
 
             <div className='flex item-center gap-1'>
               <Tooltip>
-                <TooltipTrigger>
+                <TooltipTrigger asChild>
                   <Button
                       size="sm"
                       variant="outline"
@@ -101,7 +101,7 @@ const MainPlaygroundPage = () => {
                       disabled={!activeFile || !activeFile.hasUnsavedChanges}
                     >
                       <Save className="h-4 w-4" />
-                    </Button>
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent>Save (Ctrl+S)</TooltipContent>
               </Tooltip>
@@ -203,7 +203,11 @@ const MainPlaygroundPage = () => {
                   </div>
                   <div className='flex-1'>
                     <ResizablePanelGroup direction="horizontal"  className='h-full'>
-                      <ResizablePanel defaultSize={isPreviewVisible? 50:100}>
+                      <ResizablePanel
+                        id="playground-editor-panel"
+                        order={1}
+                        defaultSize={isPreviewVisible? 50:100}
+                      >
                         <PlaygroundEditor
                         activeFile={activeFile}
                         content={activeFile?.content || ""}
@@ -215,7 +219,7 @@ const MainPlaygroundPage = () => {
                         isPreviewVisible && templateData && (
                           <>
                           <ResizableHandle />
-                          <ResizablePanel defaultSize={50}>
+                          <ResizablePanel id="playground-preview-panel" order={2} defaultSize={50}>
                             <WebContainerPreview
                             templateData={templateData}
                             instance={instance}
