@@ -5,6 +5,22 @@ export function findFilePath(
   folder: TemplateFolder,
   pathSoFar: string[] = []
 ): string | null {
+  // First pass: try matching exact object instance
+  for (const item of folder.items) {
+    if ("folderName" in item) {
+      const res = findFilePath(file, item, [...pathSoFar, item.folderName]);
+      if (res) return res;
+    } else {
+      if (item === file) {
+        return [
+          ...pathSoFar,
+          item.filename + (item.fileExtension ? "." + item.fileExtension : ""),
+        ].join("/");
+      }
+    }
+  }
+
+  // Second pass: fallback to matching filename and fileExtension
   for (const item of folder.items) {
     if ("folderName" in item) {
       const res = findFilePath(file, item, [...pathSoFar, item.folderName]);
@@ -24,8 +40,6 @@ export function findFilePath(
   return null;
 }
 
-
-
 /**
  * Generates a unique file ID based on file location in folder structure
  * @param file The template file
@@ -33,15 +47,11 @@ export function findFilePath(
  * @returns A unique file identifier including full path
  */
 export const generateFileId = (file: TemplateFile, rootFolder: TemplateFolder): string => {
-  // Find the file's path in the folder structure
-  const path = findFilePath(file, rootFolder)?.replace(/^\/+/, '') || '';
-  
-  // Handle empty/undefined file extension
+  // findFilePath already returns full relative path (e.g. "src/App.tsx")
+  const path = findFilePath(file, rootFolder)?.replace(/^\/+/, '');
+  if (path) return path;
+
   const extension = file.fileExtension?.trim();
   const extensionSuffix = extension ? `.${extension}` : '';
-
-  // Combine path and filename
-  return path
-    ? `${path}/${file.filename}${extensionSuffix}`
-    : `${file.filename}${extensionSuffix}`;
+  return `${file.filename}${extensionSuffix}`;
 }
