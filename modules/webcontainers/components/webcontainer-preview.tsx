@@ -2,8 +2,9 @@
 import React, { useEffect, useState, useRef } from "react";
 
 import { transformToWebContainerFormat } from "../hooks/transformer";
-import { CheckCircle, Loader2, XCircle } from "lucide-react";
+import { CheckCircle, ExternalLink, Globe, Loader2, RefreshCw, XCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 
 import { WebContainer } from "@webcontainer/api";
 import { TemplateFolder } from "@/modules/playground/lib/path-to-json";
@@ -17,6 +18,7 @@ interface WebContainerPreviewProps {
   instance: WebContainer | null;
   writeFileSync: (path: string, content: string) => Promise<void>;
   forceResetup?: boolean; // Optional prop to force re-setup
+  refreshTrigger?: number; // Optional prop to trigger iframe reload
 }
 const WebContainerPreview = ({
   templateData,
@@ -26,6 +28,7 @@ const WebContainerPreview = ({
   serverUrl,
   writeFileSync,
   forceResetup = false,
+  refreshTrigger,
 }: WebContainerPreviewProps) => {
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [loadingState, setLoadingState] = useState({
@@ -40,8 +43,24 @@ const WebContainerPreview = ({
   const [setupError, setSetupError] = useState<string | null>(null);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [isSetupInProgress, setIsSetupInProgress] = useState(false);
+  const [iframeKey, setIframeKey] = useState<number>(0);
 
   const terminalRef = useRef<any>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Reload iframe when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger !== undefined && refreshTrigger > 0) {
+      const timer = setTimeout(() => {
+        setIframeKey((prev) => prev + 1);
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [refreshTrigger]);
+
+  const handleManualRefresh = () => {
+    setIframeKey((prev) => prev + 1);
+  };
 
   // Reset setup state when forceResetup changes
   useEffect(() => {
@@ -343,8 +362,39 @@ const WebContainerPreview = ({
         </div>
       ) : (
         <div className="h-full flex flex-col">
-          <div className="flex-1">
+          {/* Preview Toolbar */}
+          <div className="h-9 border-b bg-muted/30 px-3 flex items-center justify-between text-xs shrink-0">
+            <div className="flex items-center gap-2 text-muted-foreground truncate max-w-[60%]">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+              <Globe className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate font-mono text-[11px] select-all">{previewUrl}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={handleManualRefresh}
+                title="Refresh Preview"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={() => window.open(previewUrl, "_blank")}
+                title="Open preview in new tab"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex-1 relative">
             <iframe
+              key={iframeKey}
+              ref={iframeRef}
               src={previewUrl}
               className="w-full h-full border-none"
               title="WebContainer Preview"

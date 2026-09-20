@@ -137,6 +137,8 @@ const MainPlaygroundPage = () => {
     [handleRenameFolder, saveTemplateData]
   );
 
+    const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
+
     const activeFile = openFiles.find((file)=>file.id==activeFileId);
     const hasUnsavedChanges= openFiles.some((file)=>file.hasUnsavedChanges)
 
@@ -157,7 +159,7 @@ const MainPlaygroundPage = () => {
       if (!latestTemplateData) return
 
       try {
-            const filePath = findFilePath(fileToSave, latestTemplateData);
+        const filePath = findFilePath(fileToSave, latestTemplateData);
         if (!filePath) {
           toast.error(
             `Could not find path for file: ${fileToSave.filename}.${fileToSave.fileExtension}`
@@ -165,41 +167,55 @@ const MainPlaygroundPage = () => {
           return;
         }
 
-   const updatedTemplateData = JSON.parse(
+        const updatedTemplateData = JSON.parse(
           JSON.stringify(latestTemplateData)
         );
 
-        // @ts-ignore
-          const updateFileContent = (items: any[]) =>
-            // @ts-ignore
-          items.map((item) => {
-            if ("folderName" in item) {
-              return { ...item, items: updateFileContent(item.items) };
-            } else if (
-              item.filename === fileToSave.filename &&
-              item.fileExtension === fileToSave.fileExtension
-            ) {
-              return { ...item, content: fileToSave.content };
+        // Precise tree traversal to update the target file content by path
+        const updateFileByPath = (folder: TemplateFolder, parts: string[]): boolean => {
+          if (parts.length === 1) {
+            const fileName = parts[0];
+            for (const item of folder.items) {
+              if (!("folderName" in item)) {
+                const fullName = item.fileExtension
+                  ? `${item.filename}.${item.fileExtension}`
+                  : item.filename;
+                if (
+                  fullName === fileName ||
+                  (item.filename === fileToSave.filename &&
+                    item.fileExtension === fileToSave.fileExtension)
+                ) {
+                  item.content = fileToSave.content;
+                  return true;
+                }
+              }
             }
-            return item;
-          });
-        updatedTemplateData.items = updateFileContent(
-          updatedTemplateData.items
-        );
+            return false;
+          }
 
-          // Sync with WebContainer
+          const currentDir = parts[0];
+          const remainingParts = parts.slice(1);
+          for (const item of folder.items) {
+            if ("folderName" in item && item.folderName === currentDir) {
+              return updateFileByPath(item as TemplateFolder, remainingParts);
+            }
+          }
+          return false;
+        };
+
+        const pathParts = filePath.split("/");
+        updateFileByPath(updatedTemplateData, pathParts);
+
+        // Sync with WebContainer
         if (writeFileSync) {
           await writeFileSync(filePath, fileToSave.content);
           lastSyncedContent.current.set(fileToSave.id, fileToSave.content);
-          if (instance && instance.fs) {
-            await instance.fs.writeFile(filePath, fileToSave.content);
-          }
         }
 
-           const newTemplateData = await saveTemplateData(updatedTemplateData);
-           //@ts-ignore
+        const newTemplateData = await saveTemplateData(updatedTemplateData);
+        //@ts-ignore
         setTemplateData(newTemplateData || updatedTemplateData);
-// Update open files
+        // Update open files
         const updatedOpenFiles = openFiles.map((f) =>
           f.id === targetFileId
             ? {
@@ -212,11 +228,14 @@ const MainPlaygroundPage = () => {
         );
         setOpenFiles(updatedOpenFiles);
 
-    toast.success(
+        // Trigger preview refresh so iframe reflects changes immediately
+        setPreviewRefreshKey((prev) => prev + 1);
+
+        toast.success(
           `Saved ${fileToSave.filename}.${fileToSave.fileExtension}`
         );
       } catch (error) {
-         console.error("Error saving file:", error);
+        console.error("Error saving file:", error);
         toast.error(
           `Failed to save ${fileToSave.filename}.${fileToSave.fileExtension}`
         );
@@ -227,7 +246,6 @@ const MainPlaygroundPage = () => {
       activeFileId,
       openFiles,
       writeFileSync,
-      instance,
       saveTemplateData,
       setTemplateData,
       setOpenFiles,
@@ -500,6 +518,7 @@ const MainPlaygroundPage = () => {
                             error={containerError}
                             serverUrl={serverUrl || ""}
                             forceResetup={false}
+                            refreshTrigger={previewRefreshKey}
                           />
                           </ResizablePanel>
                           </>
